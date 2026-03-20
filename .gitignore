@@ -1,5 +1,5 @@
 # dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -8,15 +8,24 @@
 !.yarn/releases
 !.yarn/versions
 
+# server dependencies (but keep server source code)
+server/node_modules
+server/dist
+
 # testing
 /coverage
 
 # next.js
 /.next/
 /out/
+/dist
 
 # production
 /build
+
+# Tauri
+src-tauri/target
+src-tauri/src-tauri
 
 # misc
 .DS_Store
@@ -30,7 +39,13 @@ pnpm-debug.log*
 
 # env files
 .env*.local
+.env.production
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI
+checklist.md
+tasks.md
+SPEC.md

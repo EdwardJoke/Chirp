@@ -1,0 +1,3 @@
+const SIGNALING_SERVER_URL = process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL || "http://localhost:3001"
+
+export { SIGNALING_SERVER_URL }
