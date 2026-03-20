@@ -32,6 +32,7 @@ export class MeetingManager {
   joinMeeting(
     meetingId: string,
     userId: string,
+    username: string,
     socketId: string
   ): { success: boolean; error?: string; participants?: User[] } {
     const meeting = this.meetings.get(meetingId);
@@ -40,9 +41,11 @@ export class MeetingManager {
     }
 
     if (meeting.participants.has(userId)) {
-      meeting.participants.get(userId)!.socketId = socketId;
+      const user = meeting.participants.get(userId)!;
+      user.socketId = socketId;
+      user.username = username;
     } else {
-      meeting.participants.set(userId, { userId, socketId });
+      meeting.participants.set(userId, { userId, username, socketId });
     }
 
     this.userToMeeting.set(userId, meetingId);
@@ -76,6 +79,12 @@ export class MeetingManager {
 
   getParticipantCount(meetingId: string): number {
     return this.meetings.get(meetingId)?.participants.size ?? 0;
+  }
+
+  getAllParticipants(meetingId: string): User[] {
+    const meeting = this.meetings.get(meetingId);
+    if (!meeting) return [];
+    return Array.from(meeting.participants.values());
   }
 
   deleteMeeting(meetingId: string): boolean {

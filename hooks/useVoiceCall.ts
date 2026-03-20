@@ -9,10 +9,12 @@ interface UseVoiceCallOptions {
   signalingServerUrl: string
   onStatusChange?: (status: CallStatus) => void
   onError?: (error: string) => void
+  onParticipantsChange?: (participants: Participant[]) => void
 }
 
-interface Participant {
+export interface Participant {
   userId: string
+  username: string
   socketId: string
 }
 
@@ -33,13 +35,16 @@ interface UseVoiceCallReturn {
   toggleMute: () => void
   joinCall: (meetingId: string, password: string) => Promise<void>
   endCall: () => void
+  setUsername: (username: string) => void
+  username: string
 }
 
 export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
-  const { signalingServerUrl, onStatusChange, onError } = options
+  const { signalingServerUrl, onStatusChange, onError, onParticipantsChange } = options
   const [status, setStatus] = useState<CallStatus>("idle")
   const [isMuted, setIsMuted] = useState(false)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
+  const [username, setUsername] = useState("")
   const socketRef = useRef<Socket | null>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const userIdRef = useRef<string>("")
@@ -171,6 +176,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
           meetingId,
           password,
           userId: userIdRef.current,
+          username: username,
         }, async (response: MeetingJoinedResponse | ErrorResponse) => {
           if ("code" in response) {
             handleError(response.message)
@@ -179,6 +185,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
           }
 
           console.log("Joined meeting:", response)
+          onParticipantsChange?.(response.participants)
 
           const pc = createPeerConnection(stream)
           peerConnectionRef.current = pc
@@ -201,11 +208,16 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
         })
       })
 
-      socket.on("user-joined", (data: { userId: string }) => {
-        console.log("User joined:", data.userId)
+      socket.on("user-joined", (data: { userId: string; username: string }) => {
+        console.log("User joined:", data.userId, data.username)
         if (!remoteUserIdRef.current) {
           remoteUserIdRef.current = data.userId
         }
+      })
+
+      socket.on("participants-update", (participants: Participant[]) => {
+        console.log("Participants updated:", participants)
+        onParticipantsChange?.(participants)
       })
 
       socket.on("offer", async (data: { fromUserId: string; sdp: RTCSessionDescriptionInit }) => {
@@ -242,7 +254,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
       handleError("Failed to join call")
       updateStatus("idle")
     }
-  }, [signalingServerUrl, getLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, updateStatus, handleError])
+  }, [signalingServerUrl, username, getLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, updateStatus, handleError, onParticipantsChange])
 
   const endCall = useCallback(() => {
     if (socketRef.current && meetingIdRef.current && userIdRef.current) {
@@ -270,7 +282,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
 
     setIsMuted(false)
     updateStatus("ended")
-  }, [localStream, updateStatus])
+    onParticipantsChange?.([])
+  }, [localStream, updateStatus, onParticipantsChange])
 
   const toggleMute = useCallback(() => {
     if (localStream) {
@@ -303,5 +316,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallReturn {
     toggleMute,
     joinCall,
     endCall,
+    setUsername,
+    username,
   }
 }

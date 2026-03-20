@@ -1,5 +1,6 @@
 export interface User {
   userId: string;
+  username: string;
   socketId: string;
 }
 
@@ -19,6 +20,7 @@ export interface JoinMeetingPayload {
   meetingId: string;
   password: string;
   userId: string;
+  username: string;
 }
 
 export interface LeaveMeetingPayload {

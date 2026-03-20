@@ -17,7 +17,7 @@ export function setupSocketHandlers(io: Server): void {
     socket.on(
       "join-meeting",
       (payload: JoinMeetingPayload, callback: (response: MeetingJoinedResponse | ErrorResponse) => void) => {
-        const { meetingId, password, userId } = payload;
+        const { meetingId, password, userId, username } = payload;
 
         if (!meetingManager.meetingExists(meetingId)) {
           const error: ErrorResponse = { code: "MEETING_NOT_FOUND", message: "Meeting does not exist" };
@@ -29,7 +29,7 @@ export function setupSocketHandlers(io: Server): void {
           return callback(error);
         }
 
-        const result = meetingManager.joinMeeting(meetingId, userId, socket.id);
+        const result = meetingManager.joinMeeting(meetingId, userId, username, socket.id);
         if (!result.success) {
           const error: ErrorResponse = { code: "JOIN_FAILED", message: result.error || "Failed to join meeting" };
           return callback(error);
@@ -37,13 +37,15 @@ export function setupSocketHandlers(io: Server): void {
 
         socket.join(meetingId);
         socket.data.userId = userId;
+        socket.data.username = username;
 
         const response: MeetingJoinedResponse = {
           meetingId,
           participants: result.participants || [],
         };
 
-        socket.to(meetingId).emit("user-joined", { userId });
+        socket.to(meetingId).emit("user-joined", { userId, username });
+        io.to(meetingId).emit("participants-update", meetingManager.getAllParticipants(meetingId));
 
         callback(response);
       }
@@ -56,6 +58,7 @@ export function setupSocketHandlers(io: Server): void {
       socket.leave(meetingId);
 
       socket.to(meetingId).emit("meeting-left", { userId });
+      io.to(meetingId).emit("participants-update", meetingManager.getAllParticipants(meetingId));
     });
 
     socket.on("offer", (payload: OfferPayload) => {
@@ -105,6 +108,7 @@ export function setupSocketHandlers(io: Server): void {
         const userId = socket.data.userId;
         meetingManager.leaveMeeting(meetingId, userId);
         socket.to(meetingId).emit("meeting-left", { userId });
+        io.to(meetingId).emit("participants-update", meetingManager.getAllParticipants(meetingId));
       }
     });
   });
