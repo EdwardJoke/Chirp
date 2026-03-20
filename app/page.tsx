@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import {
-  Phone,
-  PhoneDisconnect,
-  Microphone,
-  MicrophoneSlash,
   VideoCamera,
   User,
+  SignIn,
+  Microphone,
+  MicrophoneSlash,
+  PhoneDisconnect,
 } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,20 +35,11 @@ async function createMeeting(meetingId: string, password: string): Promise<boole
   }
 }
 
-async function checkMeetingExists(meetingId: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${SIGNALING_SERVER_URL}/api/meetings/${meetingId}`)
-    const data = await response.json()
-    return data.exists
-  } catch {
-    return false
-  }
-}
-
 export default function VoiceCallPage() {
   const [meetingId, setMeetingId] = useState("")
   const [password, setPassword] = useState("")
   const [showCallView, setShowCallView] = useState(false)
+  const [isHost, setIsHost] = useState(false)
 
   const { status, isMuted, toggleMute, joinCall, endCall } = useVoiceCall({
     signalingServerUrl: SIGNALING_SERVER_URL,
@@ -57,25 +48,30 @@ export default function VoiceCallPage() {
         setShowCallView(false)
         setMeetingId("")
         setPassword("")
+        setIsHost(false)
       }
     },
   })
 
+  const handleStartCall = async () => {
+    if (!meetingId.trim()) return
+    setIsHost(true)
+    setShowCallView(true)
+    await createMeeting(meetingId, password)
+    await joinCall(meetingId, password)
+  }
+
   const handleJoinCall = async () => {
     if (!meetingId.trim()) return
+    setIsHost(false)
     setShowCallView(true)
-
-    const exists = await checkMeetingExists(meetingId)
-    if (!exists) {
-      await createMeeting(meetingId, password)
-    }
-
     await joinCall(meetingId, password)
   }
 
   const handleEndCall = () => {
     endCall()
     setShowCallView(false)
+    setIsHost(false)
   }
 
   if (showCallView) {
@@ -88,8 +84,9 @@ export default function VoiceCallPage() {
               {meetingId}
             </CardTitle>
             <CardDescription>
-              {status === "connecting" && "Connecting..."}
-              {status === "connected" && "Connected"}
+              {isHost && "Waiting for someone to join..."}
+              {!isHost && status === "connecting" && "Connecting..."}
+              {!isHost && status === "connected" && "Connected"}
               {status === "ended" && "Call ended"}
             </CardDescription>
           </CardHeader>
@@ -149,16 +146,10 @@ export default function VoiceCallPage() {
             <VideoCamera className="size-5" />
             Voice Call
           </CardTitle>
-          <CardDescription>Enter meeting details to join</CardDescription>
+          <CardDescription>Enter meeting details to start or join a call</CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleJoinCall()
-            }}
-          >
+          <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <label htmlFor="meeting-id" className="text-sm font-medium">
                 Meeting ID
@@ -169,7 +160,6 @@ export default function VoiceCallPage() {
                 placeholder="Enter meeting ID"
                 value={meetingId}
                 onChange={(e) => setMeetingId(e.target.value)}
-                required
               />
             </div>
 
@@ -186,21 +176,27 @@ export default function VoiceCallPage() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="mt-2"
-              disabled={!meetingId.trim() || status === "connecting"}
-            >
-              {status === "connecting" ? (
-                "Connecting..."
-              ) : (
-                <>
-                  <Phone className="size-4" data-icon="inline-start" />
-                  Join Call
-                </>
-              )}
-            </Button>
-          </form>
+            <div className="flex gap-2 mt-2">
+              <Button
+                className="flex-1"
+                onClick={handleStartCall}
+                disabled={!meetingId.trim() || status === "connecting"}
+              >
+                <VideoCamera className="size-4" data-icon="inline-start" />
+                Start Call
+              </Button>
+
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={handleJoinCall}
+                disabled={!meetingId.trim() || status === "connecting"}
+              >
+                <SignIn className="size-4" data-icon="inline-start" />
+                Join Call
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
